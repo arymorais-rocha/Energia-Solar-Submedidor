@@ -3,65 +3,540 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meu App - Histórico</title>
+    <title>Gestão de Energia - Casa do Fundo</title>
+    <!-- Tailwind CSS para estilização moderna -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Biblioteca qrcode.js para desenhar o QR Code Pix -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
 </head>
-<body>
+<body class="bg-slate-50 text-slate-800 min-h-screen p-4 sm:p-6 md:p-8">
 
-    <div style="padding: 20px; font-family: Arial, sans-serif;">
-        <h2>Registar no Histórico</h2>
+    <div class="max-w-3xl mx-auto space-y-6">
         
-        <!-- Campos do seu formulário/app -->
-        <div style="margin-bottom: 10px;">
-            <label for="campo1">Campo 1:</label><br>
-            <input type="text" id="campo1" style="width: 100%; padding: 8px;">
-        </div>
-        
-        <div style="margin-bottom: 10px;">
-            <label for="campo2">Campo 2:</label><br>
-            <input type="text" id="campo2" style="width: 100%; padding: 8px;">
+        <!-- Cabeçalho -->
+        <header class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">⚡ Gestão de Energia</h1>
+                <p class="text-sm text-slate-500">Controle de consumo e rateio da casa do fundo</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="abrirInquilino()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium transition">
+                    👤 Inquilino/Imóvel
+                </button>
+                <button onclick="abrirConfiguracoes()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium transition">
+                    ⚙️ Configurações
+                </button>
+            </div>
+        </header>
+
+        <!-- Card de Informações do Inquilino Ativo (Resumo) -->
+        <div id="cardInfoInquilino" class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-sm">
+            <div>
+                <span class="text-xs font-bold uppercase tracking-wider text-emerald-800 block mb-0.5">Imóvel & Inquilino</span>
+                <strong id="resumoInquilinoNome" class="text-slate-900 text-base">Nenhum inquilino cadastrado</strong>
+                <p id="resumoInquilinoEnd" class="text-slate-600 text-xs mt-0.5">Clique em "Inquilino/Imóvel" acima para cadastrar os dados.</p>
+            </div>
+            <button onclick="abrirInquilino()" class="bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-300 px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                Editar Dados
+            </button>
         </div>
 
-        <!-- Botão "Salvar no Histórico" -->
-        <button onclick="salvarHistorico()" style="padding: 10px 15px; background: #007bff; color: white; border: none; cursor: pointer;">
-            Salvar no Histórico
-        </button>
+        <!-- Formulário de Lançamento -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
+            <h2 class="text-lg font-semibold text-slate-900 border-b border-slate-100 pb-3">Lançamento Mensal</h2>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Mês de Referência</label>
+                    <input type="text" id="mesReferencia" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Leitura Anterior (kWh)</label>
+                    <input type="number" step="0.1" id="leituraAnterior" placeholder="Ex: 1250.5" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Leitura Atual (kWh)</label>
+                    <input type="number" step="0.1" id="leituraAtual" placeholder="Ex: 1450.0" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+            </div>
+
+            <button onclick="calcularFatura()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-2">
+                ⚡ Calcular e Gerar Fatura
+            </button>
+        </div>
+
+        <!-- Fatura Calculada (Oculta até calcular) -->
+        <div id="painelFatura" class="hidden bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-emerald-50 pb-4">
+                <div>
+                    <span class="inline-block px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold tracking-wide uppercase mb-1">Fatura Calculada</span>
+                    <h3 id="resumoReferencia" class="text-xl font-bold text-slate-900">Referência: 03/2026</h3>
+                </div>
+                <div class="text-left sm:text-right">
+                    <span class="text-xs text-slate-400 block">Total a Pagar</span>
+                    <span id="resumoTotal" class="text-2xl font-extrabold text-emerald-600">R$ 0,00</span>
+                </div>
+            </div>
+
+            <!-- Detalhes do Consumo -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl text-sm">
+                <div>
+                    <span class="text-slate-500 block text-xs">Consumo</span>
+                    <strong id="resumoConsumo" class="text-slate-800 text-base">0 kWh</strong>
+                </div>
+                <div>
+                    <span class="text-slate-500 block text-xs">Tarifa (Equatorial)</span>
+                    <strong id="resumoTarifa" class="text-slate-800 text-base">R$ 1,16</strong>
+                </div>
+                <div>
+                    <span class="text-slate-500 block text-xs">Subtotal</span>
+                    <strong id="resumoSubtotal" class="text-slate-800 text-base">R$ 0,00</strong>
+                </div>
+                <div>
+                    <span class="text-slate-500 block text-xs">Desconto Aplicado</span>
+                    <strong id="resumoDesconto" class="text-emerald-600 text-base">-R$ 0,00 (10%)</strong>
+                </div>
+            </div>
+
+            <!-- Dados de Pagamento via Pix -->
+            <div class="border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4 bg-slate-50/50">
+                <div class="flex items-center gap-2 text-slate-900 font-semibold">
+                    <span class="text-lg">💠</span>
+                    <h4>Dados de Pagamento via Pix</h4>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                    <div class="md:col-span-2 space-y-3">
+                        <div>
+                            <span class="text-xs text-slate-500 block mb-1">Chave Pix cadastrada:</span>
+                            <div class="flex items-center gap-2">
+                                <input type="text" id="viewChavePix" readonly class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 font-mono">
+                                <button onclick="copiarChave()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap">
+                                    Copiar Chave
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <span class="text-xs text-slate-500 block mb-1">Pix Copia e Cola:</span>
+                            <div class="flex items-center gap-2">
+                                <input type="text" id="viewPixPayload" readonly class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-600 font-mono">
+                                <button onclick="copiarPixPayload()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap">
+                                    Copiar Código
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bloco do QR Code Gerado -->
+                    <div class="flex flex-col items-center justify-center bg-white p-3 border border-slate-200 rounded-xl shadow-sm">
+                        <div id="qrcode" class="p-1"></div>
+                        <span class="text-[10px] text-slate-400 mt-2 font-medium">Escaneie no app do banco</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ações -->
+            <div class="flex flex-col sm:flex-row gap-3 pt-2">
+                <button onclick="enviarWhatsApp()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-xl transition flex items-center justify-center gap-2">
+                    💬 Enviar Fatura (WhatsApp)
+                </button>
+                <button onclick="salvarHistorico()" class="bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 px-4 rounded-xl transition flex items-center justify-center gap-2">
+                    💾 Salvar no Histórico
+                </button>
+            </div>
+        </div>
+
+        <!-- Histórico Recente com Visualização de Faturas Anteriores -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
+            <h2 class="text-lg font-semibold text-slate-900">Histórico de Faturas Anteriores</h2>
+            <div id="listaHistorico" class="space-y-3">
+                <p class="text-sm text-slate-400 italic">Nenhum lançamento salvo ainda.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modal de Dados do Inquilino / Imóvel -->
+    <div id="modalInquilino" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
+            <h3 class="text-lg font-bold text-slate-900">Dados do Inquilino e Imóvel</h3>
+            
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Nome do Inquilino</label>
+                    <input type="text" id="inquilinoNome" placeholder="Ex: João da Silva" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">CPF do Inquilino</label>
+                    <input type="text" id="inquilinoCpf" placeholder="000.000.000-00" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Endereço do Imóvel</label>
+                    <input type="text" id="inquilinoEndereco" placeholder="Rua Exemplo, Nº 123 - Casa Fundos" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">CEP</label>
+                    <input type="text" id="inquilinoCep" placeholder="00000-000" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
+                </div>
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button onclick="fecharInquilino()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl transition">Cancelar</button>
+                <button onclick="salvarInquilino()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition">Salvar Dados</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Configurações -->
+    <div id="modalConfig" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
+            <h3 class="text-lg font-bold text-slate-900">Configurações do Sistema</h3>
+            
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Valor do kWh (R$)</label>
+                    <input type="number" step="0.01" id="configTarifa" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Desconto (%)</label>
+                    <input type="number" step="1" id="configDesconto" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Sua Chave Pix</label>
+                    <input type="text" id="configChavePix" placeholder="E-mail, CPF, Telefone ou Chave Aleatória" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Seu Nome (Recebedor Pix)</label>
+                    <input type="text" id="configNomePix" placeholder="Seu Nome Completo" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Cidade (Pix)</label>
+                    <input type="text" id="configCidadePix" placeholder="Sua Cidade" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
+                </div>
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button onclick="fecharConfiguracoes()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl transition">Cancelar</button>
+                <button onclick="salvarConfiguracoes()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition">Salvar</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        function salvarHistorico() {
-            // 1. Recolhe os valores dos inputs do app
-            const val1 = document.getElementById('campo1').value;
-            const val2 = document.getElementById('campo2').value;
+        // Configurações Padrão
+        let config = JSON.parse(localStorage.getItem('config_energia')) || {
+            tarifa: 1.16,
+            desconto: 10,
+            chavePix: 'arymorais10@gmail.com',
+            nomePix: 'Romerio Pereira',
+            cidadePix: 'Rio Verde'
+        };
 
-            // 2. Cole aqui a URL exata que copiou do Apps Script do Google
-            const urlWebApps = "COLE_AQUI_A_URL_DO_SEU_WEB_APP";
+        let inquilino = JSON.parse(localStorage.getItem('inquilino_energia')) || {
+            nome: '',
+            cpf: '',
+            endereco: '',
+            cep: ''
+        };
 
-            // 3. Estrutura os dados em formato JSON
-            const dadosParaEnviar = {
-                campo1: val1,
-                campo2: val2
-            };
+        let historico = JSON.parse(localStorage.getItem('historico_energia')) || [];
+        let ultimoCalculo = null;
 
-            // 4. Envia os dados para a planilha via POST
-            fetch(urlWebApps, {
-                method: 'POST',
-                mode: 'no-cors', // Essencial para comunicação direta com o Apps Script
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(dadosParaEnviar)
-            })
-            .then(() => {
-                alert('Dados salvos no histórico com sucesso!');
-                // Limpa os campos após o envio
-                document.getElementById('campo1').value = '';
-                document.getElementById('campo2').value = '';
-            })
-            .catch(error => {
-                console.error('Erro ao salvar:', error);
-                alert('Ocorreu um erro ao tentar salvar.');
-            });
+        // Inicializar Campos
+        function init() {
+            document.getElementById('configTarifa').value = config.tarifa;
+            document.getElementById('configDesconto').value = config.desconto;
+            document.getElementById('configChavePix').value = config.chavePix;
+            document.getElementById('configNomePix').value = config.nomePix;
+            document.getElementById('configCidadePix').value = config.cidadePix;
+
+            document.getElementById('inquilinoNome').value = inquilino.nome;
+            document.getElementById('inquilinoCpf').value = inquilino.cpf;
+            document.getElementById('inquilinoEndereco').value = inquilino.endereco;
+            document.getElementById('inquilinoCep').value = inquilino.cep;
+
+            atualizarCardInquilino();
+            definirMesAtual();
+            carregarUltimaLeitura();
+            atualizarHistorico();
         }
+
+        function definirMesAtual() {
+            const data = new Date();
+            let mes = data.getMonth() + 1;
+            let ano = data.getFullYear();
+            if (mes > 12) { mes = 1; ano++; }
+            document.getElementById('mesReferencia').value = `${String(mes).padStart(2, '0')}/${ano}`;
+        }
+
+        function carregarUltimaLeitura() {
+            if (historico.length > 0) {
+                const ultimo = historico[0];
+                document.getElementById('leituraAnterior').value = ultimo.leituraAtual;
+            } else {
+                document.getElementById('leituraAnterior').value = '';
+            }
+        }
+
+        // Modais Inquilino
+        function abrirInquilino() { document.getElementById('modalInquilino').classList.remove('hidden'); }
+        function fecharInquilino() { document.getElementById('modalInquilino').classList.add('hidden'); }
+
+        function salvarInquilino() {
+            inquilino.nome = document.getElementById('inquilinoNome').value.trim();
+            inquilino.cpf = document.getElementById('inquilinoCpf').value.trim();
+            inquilino.endereco = document.getElementById('inquilinoEndereco').value.trim();
+            inquilino.cep = document.getElementById('inquilinoCep').value.trim();
+
+            localStorage.setItem('inquilino_energia', JSON.stringify(inquilino));
+            atualizarCardInquilino();
+            fecharInquilino();
+            alert('Dados do inquilino salvos com sucesso!');
+        }
+
+        function atualizarCardInquilino() {
+            const nomeEl = document.getElementById('resumoInquilinoNome');
+            const endEl = document.getElementById('resumoInquilinoEnd');
+            if (inquilino.nome) {
+                nomeEl.innerText = `${inquilino.nome} (CPF: ${inquilino.cpf || 'Não informado'})`;
+                endEl.innerText = `${inquilino.endereco || 'Endereço não informado'} - CEP: ${inquilino.cep || '---'}`;
+            } else {
+                nomeEl.innerText = 'Nenhum inquilino cadastrado';
+                endEl.innerText = 'Clique em "Inquilino/Imóvel" acima para cadastrar os dados.';
+            }
+        }
+
+        // Modais Configurações
+        function abrirConfiguracoes() { document.getElementById('modalConfig').classList.remove('hidden'); }
+        function fecharConfiguracoes() { document.getElementById('modalConfig').classList.add('hidden'); }
+
+        function salvarConfiguracoes() {
+            config.tarifa = parseFloat(document.getElementById('configTarifa').value) || 1.16;
+            config.desconto = parseFloat(document.getElementById('configDesconto').value) || 10;
+            config.chavePix = document.getElementById('configChavePix').value.trim();
+            config.nomePix = document.getElementById('configNomePix').value.trim();
+            config.cidadePix = document.getElementById('configCidadePix').value.trim();
+            
+            localStorage.setItem('config_energia', JSON.stringify(config));
+            fecharConfiguracoes();
+            alert('Configurações salvas com sucesso!');
+        }
+
+        // Funções Pix BR Code
+        function formatarCampoPix(id, valor) {
+            const tamanho = String(valor.length).padStart(2, '0');
+            return id + tamanho + valor;
+        }
+
+        function gerarPayloadPix(chave, nome, cidade, valor) {
+            const gui = formatarCampoPix('00', 'br.gov.bcb.pix');
+            const chavePixField = formatarCampoPix('01', chave);
+            const contaCorrente = formatarCampoPix('26', gui + chavePixField);
+            
+            const mcc = formatarCampoPix('52', '0000');
+            const moeda = formatarCampoPix('53', '986');
+            const valorStr = formatarCampoPix('54', valor.toFixed(2));
+            const pais = formatarCampoPix('58', 'BR');
+            const nomeRecebedor = formatarCampoPix('59', nome.substring(0, 25));
+            const cidadeRecebedor = formatarCampoPix('60', cidade.substring(0, 15));
+            
+            const payloadSemCRC = 
+                formatarCampoPix('00', '01') +
+                contaCorrente +
+                mcc +
+                moeda +
+                valorStr +
+                pais +
+                nomeRecebedor +
+                cidadeRecebedor +
+                formatarCampoPix('62', formatarCampoPix('05', 'ENERGIA'));
+
+            return payloadSemCRC + calculaCRC16(payloadSemCRC + '6304');
+        }
+
+        function calculaCRC16(payload) {
+            let polinomio = 0x1021;
+            let resultado = 0xFFFF;
+            for (let i = 0; i < payload.length; i++) {
+                let c = payload.charCodeAt(i);
+                resultado ^= (c << 8);
+                for (let j = 0; j < 8; j++) {
+                    if ((resultado & 0x8000) !== 0) {
+                        resultado = ((resultado << 1) ^ polinomio) & 0xFFFF;
+                    } else {
+                        resultado = (resultado << 1) & 0xFFFF;
+                    }
+                }
+            }
+            return resultado.toString(16).toUpperCase().padStart(4, '0');
+        }
+
+        function calcularFatura() {
+            const mes = document.getElementById('mesReferencia').value;
+            const anterior = parseFloat(document.getElementById('leituraAnterior').value);
+            const atual = parseFloat(document.getElementById('leituraAtual').value);
+
+            if (isNaN(anterior) || isNaN(atual)) {
+                alert('Por favor, preencha a leitura anterior e a leitura atual.');
+                return;
+            }
+
+            if (atual < anterior) {
+                alert('A leitura atual não pode ser menor que a leitura anterior.');
+                return;
+            }
+
+            const consumo = atual - anterior;
+            const subtotal = consumo * config.tarifa;
+            const valorDesconto = subtotal * (config.desconto / 100);
+            const totalPagar = subtotal - valorDesconto;
+
+            ultimoCalculo = { mes, anterior, atual, consumo, subtotal, valorDesconto, totalPagar };
+
+            document.getElementById('resumoReferencia').innerText = `Referência: ${mes}`;
+            document.getElementById('resumoConsumo').innerText = `${consumo.toFixed(1)} kWh`;
+            document.getElementById('resumoTarifa').innerText = `R$ ${config.tarifa.toFixed(2)}`;
+            document.getElementById('resumoSubtotal').innerText = `R$ ${subtotal.toFixed(2)}`;
+            document.getElementById('resumoDesconto').innerText = `-R$ ${valorDesconto.toFixed(2)} (${config.desconto}%)`;
+            document.getElementById('resumoTotal').innerText = `R$ ${totalPagar.toFixed(2)}`;
+
+            document.getElementById('viewChavePix').value = config.chavePix;
+
+            const pixPayload = gerarPayloadPix(config.chavePix, config.nomePix || 'Recebedor', config.cidadePix || 'Cidade', totalPagar);
+            document.getElementById('viewPixPayload').value = pixPayload;
+
+            document.getElementById('qrcode').innerHTML = '';
+            new QRCode(document.getElementById('qrcode'), {
+                text: pixPayload,
+                width: 130,
+                height: 130,
+                colorDark: "#0f172a",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+            });
+
+            document.getElementById('painelFatura').classList.remove('hidden');
+            document.getElementById('painelFatura').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function copiarChave() {
+            navigator.clipboard.writeText(config.chavePix);
+            alert('Chave Pix copiada com sucesso!');
+        }
+
+        function copiarPixPayload() {
+            const payload = document.getElementById('viewPixPayload').value;
+            navigator.clipboard.writeText(payload);
+            alert('Código Pix Copia e Cola copiado com sucesso!');
+        }
+
+        function enviarWhatsApp() {
+            if (!ultimoCalculo) return;
+            const msg = `⚡ *Fatura de Energia - Casa dos Fundos* ⚡\n` +
+                        (inquilino.nome ? `👤 Inquilino: ${inquilino.nome}\n` : '') +
+                        (inquilino.endereco ? `🏠 Imóvel: ${inquilino.endereco}\n` : '') +
+                        `📅 Referência: ${ultimoCalculo.mes}\n` +
+                        `📊 Consumo: ${ultimoCalculo.consumo.toFixed(1)} kWh\n` +
+                        `💰 Subtotal: R$ ${ultimoCalculo.subtotal.toFixed(2)}\n` +
+                        `🎁 Desconto (${config.desconto}%): -R$ ${ultimoCalculo.valorDesconto.toFixed(2)}\n` +
+                        `✅ *Total a Pagar: R$ ${ultimoCalculo.totalPagar.toFixed(2)}*\n\n` +
+                        `💠 *Pix Copia e Cola:*\n${document.getElementById('viewPixPayload').value}`;
+            
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        function salvarHistorico() {
+            if (!ultimoCalculo) return;
+            historico.unshift(ultimoCalculo);
+            localStorage.setItem('historico_energia', JSON.stringify(historico));
+
+            avancarProximoMes(ultimoCalculo.atual);
+            atualizarHistorico();
+            document.getElementById('painelFatura').classList.add('hidden');
+            alert('Fatura salva com sucesso!');
+        }
+
+        function avancarProximoMes(leituraAtual) {
+            document.getElementById('leituraAnterior').value = leituraAtual;
+            document.getElementById('leituraAtual').value = '';
+
+            const partes = document.getElementById('mesReferencia').value.split('/');
+            if (partes.length === 2) {
+                let mes = parseInt(partes[0]) + 1;
+                let ano = parseInt(partes[1]);
+                if (mes > 12) { mes = 1; ano++; }
+                document.getElementById('mesReferencia').value = `${String(mes).padStart(2, '0')}/${ano}`;
+            }
+        }
+
+        function atualizarHistorico() {
+            const container = document.getElementById('listaHistorico');
+            if (historico.length === 0) {
+                container.innerHTML = `<p class="text-sm text-slate-400 italic">Nenhum lançamento salvo ainda.</p>`;
+                return;
+            }
+
+            container.innerHTML = historico.map((item, index) => `
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 p-4 rounded-xl border border-slate-100 gap-2">
+                    <div>
+                        <strong class="text-slate-900 block">Mês: ${item.mes}</strong>
+                        <span class="text-xs text-slate-500">Consumo: ${item.consumo.toFixed(1)} kWh | Leituras: ${item.anterior} ➔ ${item.atual}</span>
+                    </div>
+                    <div class="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                        <span class="font-bold text-emerald-600">R$ ${item.totalPagar.toFixed(2)}</span>
+                        <div class="flex gap-2">
+                            <button onclick="reverFatura(${index})" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold">Ver</button>
+                            <button onclick="excluirHistorico(${index})" class="text-red-400 hover:text-red-600 text-xs font-semibold">Excluir</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function reverFatura(index) {
+            const item = historico[index];
+            ultimoCalculo = item;
+            
+            document.getElementById('resumoReferencia').innerText = `Referência: ${item.mes}`;
+            document.getElementById('resumoConsumo').innerText = `${item.consumo.toFixed(1)} kWh`;
+            document.getElementById('resumoTarifa').innerText = `R$ ${config.tarifa.toFixed(2)}`;
+            document.getElementById('resumoSubtotal').innerText = `R$ ${item.subtotal.toFixed(2)}`;
+            document.getElementById('resumoDesconto').innerText = `-R$ ${item.valorDesconto.toFixed(2)} (${config.desconto}%)`;
+            document.getElementById('resumoTotal').innerText = `R$ ${item.totalPagar.toFixed(2)}`;
+
+            document.getElementById('viewChavePix').value = config.chavePix;
+            const pixPayload = gerarPayloadPix(config.chavePix, config.nomePix || 'Recebedor', config.cidadePix || 'Cidade', item.totalPagar);
+            document.getElementById('viewPixPayload').value = pixPayload;
+
+            document.getElementById('qrcode').innerHTML = '';
+            new QRCode(document.getElementById('qrcode'), {
+                text: pixPayload,
+                width: 130,
+                height: 130,
+                colorDark: "#0f172a",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+            });
+
+            document.getElementById('painelFatura').classList.remove('hidden');
+            document.getElementById('painelFatura').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function excluirHistorico(index) {
+            if (confirm('Deseja realmente excluir este registro do histórico?')) {
+                historico.splice(index, 1);
+                localStorage.setItem('historico_energia', JSON.stringify(historico));
+                atualizarHistorico();
+                carregarUltimaLeitura();
+            }
+        }
+
+        window.onload = init;
     </script>
 </body>
 </html>
