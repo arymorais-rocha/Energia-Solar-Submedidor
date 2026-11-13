@@ -1,542 +1,447 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="h-full">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão de Energia - Casa do Fundo</title>
-    <!-- Tailwind CSS para estilização moderna -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Biblioteca qrcode.js para desenhar o QR Code Pix -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestor de Energia - Submedidor Solar</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','sans-serif']}}}}</script>
+<style>.inp{width:100%;background:#f8fafc;border:1px solid #cbd5e1;border-radius:.75rem;padding:.625rem .875rem;font-size:.875rem}.inp:focus{outline:2px solid #10b981;background:#fff}.lb{display:block;font-size:.75rem;font-weight:600;color:#64748b;margin-bottom:.25rem}</style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen p-4 sm:p-6 md:p-8">
+<body class="bg-slate-50 text-slate-800 h-full flex flex-col">
+<header class="bg-emerald-600 text-white shadow-md">
+ <div class="max-w-4xl mx-auto px-4 py-4 flex flex-wrap gap-3 justify-between items-center">
+  <div class="flex items-center gap-3">
+   <div class="bg-white/10 p-2.5 rounded-xl"><i class="fa-solid fa-solar-panel text-2xl text-emerald-200"></i></div>
+   <div><h1 class="text-xl font-bold">Gestor Solar Submedidor</h1><p class="text-xs text-emerald-100">Equatorial GO • Controle de inquilino</p></div>
+  </div>
+  <div class="flex gap-2 text-xs font-medium">
+   <button onclick="exportar()" class="bg-emerald-700 hover:bg-emerald-800 px-3 py-2 rounded-lg"><i class="fa-solid fa-download"></i> Backup</button>
+   <button onclick="$('arq').click()" class="bg-emerald-700 hover:bg-emerald-800 px-3 py-2 rounded-lg"><i class="fa-solid fa-upload"></i> Restaurar</button>
+   <button onclick="abrirCfg()" class="bg-emerald-700 hover:bg-emerald-800 px-3 py-2 rounded-lg"><i class="fa-solid fa-gear"></i> Configurações</button>
+   <input id="arq" type="file" accept=".json" class="hidden" onchange="importar(event)">
+  </div>
+ </div>
+</header>
 
-    <div class="max-w-3xl mx-auto space-y-6">
-        
-        <!-- Cabeçalho -->
-        <header class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-                <h1 class="text-2xl font-bold text-slate-900">⚡ Gestão de Energia</h1>
-                <p class="text-sm text-slate-500">Controle de consumo e rateio da casa do fundo</p>
-            </div>
-            <div class="flex items-center gap-2">
-                <button onclick="abrirInquilino()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium transition">
-                    👤 Inquilino/Imóvel
-                </button>
-                <button onclick="abrirConfiguracoes()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium transition">
-                    ⚙️ Configurações
-                </button>
-            </div>
-        </header>
+<div id="toast" class="hidden fixed top-5 right-5 z-[70] bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 text-sm font-medium"><i id="t-ic"></i><span id="t-msg"></span></div>
 
-        <!-- Card de Informações do Inquilino Ativo (Resumo) -->
-        <div id="cardInfoInquilino" class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-sm">
-            <div>
-                <span class="text-xs font-bold uppercase tracking-wider text-emerald-800 block mb-0.5">Imóvel & Inquilino</span>
-                <strong id="resumoInquilinoNome" class="text-slate-900 text-base">Nenhum inquilino cadastrado</strong>
-                <p id="resumoInquilinoEnd" class="text-slate-600 text-xs mt-0.5">Clique em "Inquilino/Imóvel" acima para cadastrar os dados.</p>
-            </div>
-            <button onclick="abrirInquilino()" class="bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-300 px-3 py-1.5 rounded-lg text-xs font-semibold transition">
-                Editar Dados
-            </button>
-        </div>
+<main class="max-w-4xl w-full mx-auto px-4 py-6 flex-grow space-y-6">
 
-        <!-- Formulário de Lançamento -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
-            <h2 class="text-lg font-semibold text-slate-900 border-b border-slate-100 pb-3">Lançamento Mensal</h2>
-            
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Mês de Referência</label>
-                    <input type="text" id="mesReferencia" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Leitura Anterior (kWh)</label>
-                    <input type="number" step="0.1" id="leituraAnterior" placeholder="Ex: 1250.5" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Leitura Atual (kWh)</label>
-                    <input type="number" step="0.1" id="leituraAtual" placeholder="Ex: 1450.0" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                </div>
-            </div>
+ <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+  <h2 class="font-bold mb-4"><i class="fa-solid fa-calculator text-emerald-600"></i> Nova leitura</h2>
+  <form onsubmit="calcular(event)" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   <div class="sm:col-span-2"><label class="lb">Mês / ano</label><input type="month" id="mes" required class="inp" onchange="sugerirAnterior()"></div>
+   <div><label class="lb">Leitura anterior (kWh)</label><input type="number" step="0.1" min="0" id="ant" required class="inp"></div>
+   <div><label class="lb">Data da leitura anterior</label><input type="date" id="dant" class="inp"></div>
+   <div><label class="lb">Leitura atual (kWh)</label><input type="number" step="0.1" min="0" id="atu" required class="inp"></div>
+   <div><label class="lb">Data da leitura atual</label><input type="date" id="datu" required class="inp"></div>
+   <div class="sm:col-span-2 flex items-center justify-between gap-3">
+    <span id="dica" class="text-xs text-slate-400"></span>
+    <button class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-6 py-2.5 rounded-xl shadow"><i class="fa-solid fa-bolt"></i> Calcular fatura</button>
+   </div>
+  </form>
+ </section>
 
-            <button onclick="calcularFatura()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-2">
-                ⚡ Calcular e Gerar Fatura
-            </button>
-        </div>
-
-        <!-- Fatura Calculada (Oculta até calcular) -->
-        <div id="painelFatura" class="hidden bg-white rounded-2xl shadow-sm border border-emerald-100 p-6 space-y-6">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-emerald-50 pb-4">
-                <div>
-                    <span class="inline-block px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold tracking-wide uppercase mb-1">Fatura Calculada</span>
-                    <h3 id="resumoReferencia" class="text-xl font-bold text-slate-900">Referência: 03/2026</h3>
-                </div>
-                <div class="text-left sm:text-right">
-                    <span class="text-xs text-slate-400 block">Total a Pagar</span>
-                    <span id="resumoTotal" class="text-2xl font-extrabold text-emerald-600">R$ 0,00</span>
-                </div>
-            </div>
-
-            <!-- Detalhes do Consumo -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl text-sm">
-                <div>
-                    <span class="text-slate-500 block text-xs">Consumo</span>
-                    <strong id="resumoConsumo" class="text-slate-800 text-base">0 kWh</strong>
-                </div>
-                <div>
-                    <span class="text-slate-500 block text-xs">Tarifa (Equatorial)</span>
-                    <strong id="resumoTarifa" class="text-slate-800 text-base">R$ 1,16</strong>
-                </div>
-                <div>
-                    <span class="text-slate-500 block text-xs">Subtotal</span>
-                    <strong id="resumoSubtotal" class="text-slate-800 text-base">R$ 0,00</strong>
-                </div>
-                <div>
-                    <span class="text-slate-500 block text-xs">Desconto Aplicado</span>
-                    <strong id="resumoDesconto" class="text-emerald-600 text-base">-R$ 0,00 (10%)</strong>
-                </div>
-            </div>
-
-            <!-- Dados de Pagamento via Pix -->
-            <div class="border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4 bg-slate-50/50">
-                <div class="flex items-center gap-2 text-slate-900 font-semibold">
-                    <span class="text-lg">💠</span>
-                    <h4>Dados de Pagamento via Pix</h4>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                    <div class="md:col-span-2 space-y-3">
-                        <div>
-                            <span class="text-xs text-slate-500 block mb-1">Chave Pix cadastrada:</span>
-                            <div class="flex items-center gap-2">
-                                <input type="text" id="viewChavePix" readonly class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 font-mono">
-                                <button onclick="copiarChave()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap">
-                                    Copiar Chave
-                                </button>
-                            </div>
-                        </div>
-
-                        <div>
-                            <span class="text-xs text-slate-500 block mb-1">Pix Copia e Cola:</span>
-                            <div class="flex items-center gap-2">
-                                <input type="text" id="viewPixPayload" readonly class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-600 font-mono">
-                                <button onclick="copiarPixPayload()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap">
-                                    Copiar Código
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Bloco do QR Code Gerado -->
-                    <div class="flex flex-col items-center justify-center bg-white p-3 border border-slate-200 rounded-xl shadow-sm">
-                        <div id="qrcode" class="p-1"></div>
-                        <span class="text-[10px] text-slate-400 mt-2 font-medium">Escaneie no app do banco</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Ações -->
-            <div class="flex flex-col sm:flex-row gap-3 pt-2">
-                <button onclick="enviarWhatsApp()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-xl transition flex items-center justify-center gap-2">
-                    💬 Enviar Fatura (WhatsApp)
-                </button>
-                <button onclick="salvarHistorico()" class="bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 px-4 rounded-xl transition flex items-center justify-center gap-2">
-                    💾 Salvar no Histórico
-                </button>
-            </div>
-        </div>
-
-        <!-- Histórico Recente com Visualização de Faturas Anteriores -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
-            <h2 class="text-lg font-semibold text-slate-900">Histórico de Faturas Anteriores</h2>
-            <div id="listaHistorico" class="space-y-3">
-                <p class="text-sm text-slate-400 italic">Nenhum lançamento salvo ainda.</p>
-            </div>
-        </div>
-
+ <section id="fatura" class="hidden bg-white rounded-2xl shadow-md border border-emerald-200 overflow-hidden">
+  <div class="bg-emerald-50 border-b border-emerald-100 p-4 flex justify-between items-center gap-3">
+   <div><span class="bg-emerald-200/70 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full">Fatura calculada</span>
+    <h3 id="f-mes" class="text-lg font-bold mt-1"></h3></div>
+   <div class="text-right"><span class="text-xs text-slate-500 block">Total a pagar</span><span id="f-total" class="text-2xl font-black text-emerald-600"></span></div>
+  </div>
+  <div class="p-5 space-y-5">
+   <div class="rounded-xl border border-slate-200 p-4 space-y-3 text-sm">
+     <div id="f-cons-box" class="hidden"><span class="text-xs text-slate-500 block">Consumidor</span><b id="f-nome" class="block text-base"></b><p id="f-end" class="text-slate-600 whitespace-pre-line"></p></div>
+     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div><span class="text-xs text-slate-500 block">Vencimento</span><b id="f-venc"></b></div>
+      <div><span class="text-xs text-slate-500 block">Período das leituras</span><b id="f-per"></b></div>
+     </div>
     </div>
-
-    <!-- Modal de Dados do Inquilino / Imóvel -->
-    <div id="modalInquilino" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
-            <h3 class="text-lg font-bold text-slate-900">Dados do Inquilino e Imóvel</h3>
-            
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Nome do Inquilino</label>
-                    <input type="text" id="inquilinoNome" placeholder="Ex: João da Silva" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">CPF do Inquilino</label>
-                    <input type="text" id="inquilinoCpf" placeholder="000.000.000-00" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Endereço do Imóvel</label>
-                    <input type="text" id="inquilinoEndereco" placeholder="Rua Exemplo, Nº 123 - Casa Fundos" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">CEP</label>
-                    <input type="text" id="inquilinoCep" placeholder="00000-000" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
-                </div>
-            </div>
-
-            <div class="flex gap-3 pt-2">
-                <button onclick="fecharInquilino()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl transition">Cancelar</button>
-                <button onclick="salvarInquilino()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition">Salvar Dados</button>
-            </div>
-        </div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm">
+    <div><span class="text-xs text-slate-500 block">Consumo</span><b id="d-cons"></b></div>
+    <div><span class="text-xs text-slate-500 block">Tarifa</span><b id="d-tar"></b></div>
+    <div><span class="text-xs text-slate-500 block">Subtotal</span><b id="d-sub"></b></div>
+    <div><span class="text-xs text-slate-500 block">Desconto</span><b id="d-desc" class="text-emerald-600"></b></div>
+   </div>
+   <div class="border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-5">
+    <div class="space-y-2 w-full min-w-0">
+     <div class="text-emerald-700 font-bold"><i class="fa-brands fa-pix"></i> Pagamento via Pix</div>
+     <p id="pix-aviso" class="hidden text-xs text-rose-600">Cadastre a chave Pix, o nome e a cidade em Configurações para gerar o QR Code.</p>
+     <div id="pix-box" class="space-y-2">
+      <p class="text-xs text-slate-500">Pix copia e cola (já com o valor):</p>
+      <p id="pix-code" class="text-[11px] font-mono bg-slate-50 border border-slate-200 rounded-lg p-2 break-all select-all"></p>
+      <div class="flex gap-2 text-xs font-bold">
+       <button onclick="copiar(payload,'Pix copia e cola copiado!')" class="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded">Copiar código</button>
+       <button onclick="copiar(cfg.pixChave,'Chave Pix copiada!')" class="text-slate-600 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded">Copiar chave</button>
+      </div>
+     </div>
     </div>
+    <div id="qr-wrap" class="flex flex-col items-center shrink-0"><div id="qr" class="p-2 bg-white border border-slate-200 rounded-xl"></div><span class="text-[10px] text-slate-400 mt-1">Escaneie no app do banco</span></div>
+   </div>
+   <div class="flex flex-wrap gap-3">
+    <button onclick="zap()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm py-2.5 px-4 rounded-xl shadow"><i class="fa-brands fa-whatsapp"></i> Enviar pelo WhatsApp</button>
+    <button onclick="baixarPdf()" class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-semibold text-sm py-2.5 px-4 rounded-xl shadow-sm"><i class="fa-solid fa-file-pdf text-rose-500"></i> Baixar PDF</button>
+    <button onclick="salvarFatura()" class="bg-slate-800 hover:bg-slate-900 text-white font-semibold text-sm py-2.5 px-4 rounded-xl shadow"><i class="fa-solid fa-floppy-disk"></i> Salvar no histórico</button>
+   </div>
+  </div>
+ </section>
 
-    <!-- Modal de Configurações -->
-    <div id="modalConfig" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
-            <h3 class="text-lg font-bold text-slate-900">Configurações do Sistema</h3>
-            
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Valor do kWh (R$)</label>
-                    <input type="number" step="0.01" id="configTarifa" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Desconto (%)</label>
-                    <input type="number" step="1" id="configDesconto" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Sua Chave Pix</label>
-                    <input type="text" id="configChavePix" placeholder="E-mail, CPF, Telefone ou Chave Aleatória" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Seu Nome (Recebedor Pix)</label>
-                    <input type="text" id="configNomePix" placeholder="Seu Nome Completo" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Cidade (Pix)</label>
-                    <input type="text" id="configCidadePix" placeholder="Sua Cidade" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-slate-800">
-                </div>
-            </div>
+ <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+  <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+   <h2 class="font-bold"><i class="fa-solid fa-clock-rotate-left text-emerald-600"></i> Histórico</h2>
+   <span id="pendente" class="text-xs font-semibold"></span>
+  </div>
+  <div id="grafico" class="hidden mb-5"><p class="text-xs text-slate-400 mb-1">Consumo mensal (kWh)</p><div id="barras" class="flex items-end gap-1.5 h-24"></div></div>
+  <div class="overflow-x-auto"><table class="w-full text-left text-sm">
+   <thead><tr class="border-b border-slate-200 text-xs text-slate-400"><th class="py-2 px-2">Mês</th><th class="px-2">Leituras</th><th class="px-2">Consumo</th><th class="px-2">Valor</th><th class="px-2">Situação</th><th class="px-2 text-right">Ações</th></tr></thead>
+   <tbody id="tab" class="divide-y divide-slate-100"></tbody></table></div>
+  <p id="vazio" class="text-center py-8 text-slate-400 text-sm">Nenhum registro ainda. Calcule a primeira leitura acima.</p>
+ </section>
+</main>
 
-            <div class="flex gap-3 pt-2">
-                <button onclick="fecharConfiguracoes()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl transition">Cancelar</button>
-                <button onclick="salvarConfiguracoes()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl transition">Salvar</button>
-            </div>
-        </div>
-    </div>
+<footer class="text-center py-4 text-xs text-slate-400 border-t border-slate-200 bg-white">Os dados ficam só neste navegador. Faça backup de vez em quando.</footer>
 
-    <script>
-        // Configurações Padrão
-        let config = JSON.parse(localStorage.getItem('config_energia')) || {
-            tarifa: 1.16,
-            desconto: 10,
-            chavePix: 'arymorais10@gmail.com',
-            nomePix: 'Romerio Pereira',
-            cidadePix: 'Rio Verde'
-        };
+<div id="pagar" class="hidden fixed inset-0 z-[60] bg-slate-50 overflow-y-auto">
+ <div class="max-w-md mx-auto p-5 space-y-5">
+  <div class="bg-emerald-600 text-white rounded-2xl p-5">
+   <p class="text-sm text-emerald-100">Pagamento via Pix</p>
+   <p id="p-valor" class="text-3xl font-black mt-1"></p>
+   <p id="p-nome" class="text-sm text-emerald-100 mt-1"></p>
+  </div>
+  <button id="p-btn" onclick="copiar($('p-code').textContent,'Código Pix copiado! Cole no app do seu banco.')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-2xl shadow text-base"><i class="fa-regular fa-copy"></i> Copiar código Pix</button>
+  <p class="text-xs text-slate-500 text-center">Depois abra o app do banco e escolha Pix &gt; Pix Copia e Cola.</p>
+  <div class="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col items-center"><div id="p-qr"></div><span class="text-xs text-slate-400 mt-2">Ou escaneie o QR Code com outro aparelho</span></div>
+  <p id="p-code" class="text-[11px] font-mono bg-white border border-slate-200 rounded-xl p-3 break-all select-all"></p>
+ </div>
+</div>
 
-        let inquilino = JSON.parse(localStorage.getItem('inquilino_energia')) || {
-            nome: '',
-            cpf: '',
-            endereco: '',
-            cep: ''
-        };
+<div id="modal" class="fixed inset-0 z-50 bg-slate-900/60 hidden items-center justify-center p-4">
+ <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+  <div class="flex justify-between items-center border-b border-slate-100 pb-3"><h3 class="font-bold">Configurações</h3><button onclick="fecharCfg()" class="text-slate-400 text-lg"><i class="fa-solid fa-xmark"></i></button></div>
+  <div class="grid grid-cols-3 gap-3">
+   <div><label class="lb">kWh (R$)</label><input type="number" step="0.01" id="c-tar" class="inp"></div>
+   <div><label class="lb">Desconto (%)</label><input type="number" step="0.5" id="c-desc" class="inp"></div>
+   <div><label class="lb">Vence dia</label><input type="number" min="1" max="28" id="c-dia" class="inp"></div>
+  </div>
+  <div><label class="lb">Chave Pix</label><input id="c-pix" class="inp" placeholder="CPF (só números), e-mail ou +5562999999999"></div>
+  <div class="grid grid-cols-2 gap-3">
+   <div><label class="lb">Nome do recebedor</label><input id="c-nome" class="inp"></div>
+   <div><label class="lb">Cidade (Pix)</label><input id="c-cid" class="inp"></div>
+  </div>
+  <div><label class="lb">Nome na fatura</label><input id="c-inq" class="inp" placeholder="Ex.: Jorge Teixeira"></div>
+  <div class="grid grid-cols-3 gap-3">
+   <div class="col-span-2"><label class="lb">Endereço do imóvel</label><textarea id="c-end" rows="3" class="inp" placeholder="Rua, quadra, lote&#10;Bairro: nome do bairro&#10;Cidade - UF"></textarea></div>
+   <div><label class="lb">CEP</label><input id="c-cep" class="inp" placeholder="00000-000"></div>
+  </div>
+  <div><label class="lb">WhatsApp (com DDD)</label><input id="c-tel" class="inp" placeholder="62999999999"></div>
+  <div class="flex justify-end gap-3 pt-1">
+   <button onclick="fecharCfg()" class="px-4 py-2 rounded-xl text-sm text-slate-600 hover:bg-slate-100">Cancelar</button>
+   <button onclick="salvarCfg()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl text-sm font-semibold">Salvar</button>
+  </div>
+ </div>
+</div>
 
-        let historico = JSON.parse(localStorage.getItem('historico_energia')) || [];
-        let ultimoCalculo = null;
+<script>
+const $=id=>document.getElementById(id);
+const K={c:'gestor_solar_config',h:'gestor_solar_historico'};
+let cfg={tarifa:1.16,desconto:10,diaVenc:10,pixChave:'',pixNome:'',pixCidade:'',inquilino:'',telefone:'',endereco:'',cep:''};
+let hist=[],atual=null,payload='';
+const R=v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const r2=v=>Math.round((v+Number.EPSILON)*100)/100;
+const num=(v,d)=>{const n=parseFloat(v);return isNaN(n)?d:n};
+const mmaa=m=>m.slice(5)+'/'+m.slice(0,4);
+const dmy=d=>d?d.split('-').reverse().join('/'):'';
 
-        // Inicializar Campos
-        function init() {
-            document.getElementById('configTarifa').value = config.tarifa;
-            document.getElementById('configDesconto').value = config.desconto;
-            document.getElementById('configChavePix').value = config.chavePix;
-            document.getElementById('configNomePix').value = config.nomePix;
-            document.getElementById('configCidadePix').value = config.cidadePix;
+window.onload=()=>{const q=new URLSearchParams(location.search).get('pix');if(q){modoPagamento(q);return}
+load();const h=new Date();$('mes').value=h.getFullYear()+'-'+String(h.getMonth()+1).padStart(2,'0');$('datu').value=new Date(h.getTime()-h.getTimezoneOffset()*60000).toISOString().slice(0,10);sugerirAnterior();render()};
 
-            document.getElementById('inquilinoNome').value = inquilino.nome;
-            document.getElementById('inquilinoCpf').value = inquilino.cpf;
-            document.getElementById('inquilinoEndereco').value = inquilino.endereco;
-            document.getElementById('inquilinoCep').value = inquilino.cep;
+function load(){
+ try{Object.assign(cfg,JSON.parse(localStorage.getItem(K.c))||{})}catch(e){}
+ if(cfg.endereco&&!cfg.endereco.includes('\n'))cfg.endereco=cfg.endereco.replace(/\s+(Bairro:?)/i,'\n$1');
+ try{hist=JSON.parse(localStorage.getItem(K.h))||[]}catch(e){}
+ hist.sort((a,b)=>b.mesRef.localeCompare(a.mesRef));
+}
+function save(){
+ try{localStorage.setItem(K.c,JSON.stringify(cfg));localStorage.setItem(K.h,JSON.stringify(hist))}
+ catch(e){toast('Não foi possível salvar neste navegador.','error')}
+}
 
-            atualizarCardInquilino();
-            definirMesAtual();
-            carregarUltimaLeitura();
-            atualizarHistorico();
-        }
+/* Leitura anterior automática: usa a última leitura salva antes do mês escolhido */
+function sugerirAnterior(){
+ const p=hist.find(h=>h.mesRef<$('mes').value);
+ $('ant').value=p?p.atual:'';
+ $('dant').value=p&&p.dataAtual?p.dataAtual:'';
+ $('dica').textContent=p?(p.dataAtual?'Leitura e data anteriores preenchidas com as de '+mmaa(p.mesRef)+'.':'Leitura anterior preenchida. Informe a data dela.'):'';
+}
 
-        function definirMesAtual() {
-            const data = new Date();
-            let mes = data.getMonth() + 1;
-            let ano = data.getFullYear();
-            if (mes > 12) { mes = 1; ano++; }
-            document.getElementById('mesReferencia').value = `${String(mes).padStart(2, '0')}/${ano}`;
-        }
+/* Tela de pagamento aberta pelo link da fatura */
+function parseTlv(x){const o={};let i=0;while(i+4<=x.length){const l=parseInt(x.substr(i+2,2),10);if(isNaN(l))break;o[x.substr(i,2)]=x.substr(i+4,l);i+=4+l}return o}
+const linkPix=()=>/^https?:/.test(location.protocol)&&payload?location.href.split(/[?#]/)[0]+'?pix='+encodeURIComponent(payload):'';
+function modoPagamento(code){
+ code=code.trim();
+ const ok=code.startsWith('000201')&&code.length>20&&crc16(code.slice(0,-4))===code.slice(-4);
+ $('pagar').classList.remove('hidden');
+ if(!ok){$('p-valor').textContent='Link inválido';$('p-nome').textContent='Peça uma nova fatura.';$('p-btn').classList.add('hidden');return}
+ const o=parseTlv(code);
+ $('p-valor').textContent=o['54']?R(parseFloat(o['54'])):'Pix';
+ $('p-nome').textContent=o['59']?'Para '+o['59']:'';
+ $('p-code').textContent=code;
+ if(window.QRCode)new QRCode($('p-qr'),{text:code,width:176,height:176,correctLevel:QRCode.CorrectLevel.M});
+}
 
-        function carregarUltimaLeitura() {
-            if (historico.length > 0) {
-                const ultimo = historico[0];
-                document.getElementById('leituraAnterior').value = ultimo.leituraAtual;
-            } else {
-                document.getElementById('leituraAnterior').value = '';
-            }
-        }
+/* Pix (BR Code estático com valor e CRC16) */
+const tlv=(id,v)=>id+String(v.length).padStart(2,'0')+v;
+function crc16(s){let c=0xFFFF;for(let i=0;i<s.length;i++){c^=s.charCodeAt(i)<<8;for(let j=0;j<8;j++)c=(c&0x8000)?((c<<1)^0x1021)&0xFFFF:(c<<1)&0xFFFF}return c.toString(16).toUpperCase().padStart(4,'0')}
+const limpa=(s,n)=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9 ]/g,'').trim().toUpperCase().slice(0,n).trim();
+function gerarPix(valor,txid){
+ const mai=tlv('00','br.gov.bcb.pix')+tlv('01',cfg.pixChave.trim());
+ let p=tlv('00','01')+tlv('01','11')+tlv('26',mai)+tlv('52','0000')+tlv('53','986')+(valor>0?tlv('54',valor.toFixed(2)):'')+tlv('58','BR')+tlv('59',limpa(cfg.pixNome,25))+tlv('60',limpa(cfg.pixCidade,15))+tlv('62',tlv('05',txid));
+ p+='6304';return p+crc16(p);
+}
 
-        // Modais Inquilino
-        function abrirInquilino() { document.getElementById('modalInquilino').classList.remove('hidden'); }
-        function fecharInquilino() { document.getElementById('modalInquilino').classList.add('hidden'); }
+function calcular(e){
+ e.preventDefault();
+ const mesRef=$('mes').value,ant=num($('ant').value),atu=num($('atu').value),dant=$('dant').value,datu=$('datu').value;
+ if(atu<ant){toast('A leitura atual não pode ser menor que a anterior.','error');return}
+ if(dant&&datu<dant){toast('A data da leitura atual não pode ser anterior à da leitura anterior.','error');return}
+ const cons=Math.round((atu-ant)*10)/10;
+ const rec=hist.filter(h=>h.mesRef!==mesRef).slice(0,6);
+ if(rec.length>=3){const med=rec.reduce((s,h)=>s+h.consumoKwh,0)/rec.length;
+  if(cons>med*2&&!confirm('Consumo de '+cons+' kWh, mais que o dobro da média recente ('+med.toFixed(0)+' kWh). Está correto?'))return}
+ const sub=r2(cons*cfg.tarifa),desc=r2(sub*cfg.desconto/100);
+ const old=hist.find(h=>h.mesRef===mesRef);
+ atual={id:old?old.id:Date.now(),mesRef,anterior:ant,atual:atu,dataAnterior:dant,dataAtual:datu,consumoKwh:cons,tarifa:cfg.tarifa,percentualDesconto:cfg.desconto,subtotal:sub,valorDesconto:desc,totalLiquido:r2(sub-desc),pago:old?!!old.pago:false};
+ mostrar(atual);toast('Fatura calculada.');
+}
 
-        function salvarInquilino() {
-            inquilino.nome = document.getElementById('inquilinoNome').value.trim();
-            inquilino.cpf = document.getElementById('inquilinoCpf').value.trim();
-            inquilino.endereco = document.getElementById('inquilinoEndereco').value.trim();
-            inquilino.cep = document.getElementById('inquilinoCep').value.trim();
+function vencimento(ref){
+ const [y,m]=ref.split('-').map(Number),d=new Date(y,m,Math.min(Math.max(cfg.diaVenc||10,1),28));
+ return d.toLocaleDateString('pt-BR');
+}
 
-            localStorage.setItem('inquilino_energia', JSON.stringify(inquilino));
-            atualizarCardInquilino();
-            fecharInquilino();
-            alert('Dados do inquilino salvos com sucesso!');
-        }
+function mostrar(c){
+ $('fatura').classList.remove('hidden');
+ $('f-mes').textContent='Referência: '+mmaa(c.mesRef);
+$('f-venc').textContent=vencimento(c.mesRef);
+ $('f-cons-box').classList.toggle('hidden',!(cfg.inquilino||cfg.endereco||cfg.cep));
+ $('f-nome').textContent=cfg.inquilino||'';
+ $('f-end').textContent=[cfg.endereco,cfg.cep&&'CEP '+cfg.cep].filter(Boolean).join('\n');
+ $('f-per').textContent=c.dataAtual?(c.dataAnterior?dmy(c.dataAnterior)+' a ':'até ')+dmy(c.dataAtual):'Não informado';
+ $('f-total').textContent=R(c.totalLiquido);
+ $('d-cons').textContent=c.consumoKwh.toFixed(1)+' kWh';
+ $('d-tar').textContent=R(c.tarifa);
+ $('d-sub').textContent=R(c.subtotal);
+ $('d-desc').textContent='-'+R(c.valorDesconto)+' ('+c.percentualDesconto+'%)';
+ const ok=cfg.pixChave.trim()&&cfg.pixNome.trim()&&cfg.pixCidade.trim();
+ $('pix-aviso').classList.toggle('hidden',!!ok);$('pix-box').classList.toggle('hidden',!ok);$('qr-wrap').classList.toggle('hidden',!ok);
+ payload='';$('qr').innerHTML='';
+ if(ok){
+  payload=gerarPix(c.totalLiquido,'ENERGIA'+c.mesRef.replace('-',''));
+  $('pix-code').textContent=payload;
+  if(window.QRCode)new QRCode($('qr'),{text:payload,width:128,height:128,correctLevel:QRCode.CorrectLevel.M});
+ }
+ $('fatura').scrollIntoView({behavior:'smooth'});
+}
 
-        function atualizarCardInquilino() {
-            const nomeEl = document.getElementById('resumoInquilinoNome');
-            const endEl = document.getElementById('resumoInquilinoEnd');
-            if (inquilino.nome) {
-                nomeEl.innerText = `${inquilino.nome} (CPF: ${inquilino.cpf || 'Não informado'})`;
-                endEl.innerText = `${inquilino.endereco || 'Endereço não informado'} - CEP: ${inquilino.cep || '---'}`;
-            } else {
-                nomeEl.innerText = 'Nenhum inquilino cadastrado';
-                endEl.innerText = 'Clique em "Inquilino/Imóvel" acima para cadastrar os dados.';
-            }
-        }
+function salvarFatura(){
+ if(!atual)return;
+ const i=hist.findIndex(h=>h.mesRef===atual.mesRef);
+ if(i>=0)hist[i]=atual;else hist.push(atual);
+ hist.sort((a,b)=>b.mesRef.localeCompare(a.mesRef));
+ save();render();sugerirAnterior();toast('Fatura salva no histórico.');
+}
 
-        // Modais Configurações
-        function abrirConfiguracoes() { document.getElementById('modalConfig').classList.remove('hidden'); }
-        function fecharConfiguracoes() { document.getElementById('modalConfig').classList.add('hidden'); }
+function render(){
+ const tb=$('tab');tb.innerHTML='';
+ $('vazio').classList.toggle('hidden',hist.length>0);
+ hist.forEach(h=>{
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td class="py-2.5 px-2 font-semibold">${mmaa(h.mesRef)}</td>
+  <td class="px-2 font-mono text-xs text-slate-500">${h.anterior} → ${h.atual}<br><span class="text-[10px] text-slate-400">${dmy(h.dataAnterior)||'--'} → ${dmy(h.dataAtual)||'--'}</span></td>
+  <td class="px-2">${h.consumoKwh.toFixed(1)} kWh</td>
+  <td class="px-2 font-bold text-emerald-600">${R(h.totalLiquido)}</td>
+  <td class="px-2"><button onclick="alternarPago(${h.id})" class="text-xs font-semibold px-2 py-1 rounded ${h.pago?'bg-emerald-100 text-emerald-700':'bg-amber-100 text-amber-700'}">${h.pago?'Pago':'Pendente'}</button></td>
+  <td class="px-2 text-right whitespace-nowrap"><button onclick="ver(${h.id})" class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">Ver</button>
+  <button onclick="excluir(${h.id})" class="text-xs font-semibold text-rose-600 bg-rose-50 px-2 py-1 rounded ml-1">Excluir</button></td>`;
+  tb.appendChild(tr);
+ });
+ const pend=hist.filter(h=>!h.pago).reduce((s,h)=>s+h.totalLiquido,0);
+ $('pendente').textContent=pend>0?'A receber: '+R(pend):'';
+ $('pendente').className='text-xs font-semibold text-amber-600';
+ const u=hist.slice(0,12).reverse(),mx=Math.max(...u.map(h=>h.consumoKwh),1);
+ $('grafico').classList.toggle('hidden',u.length<2);
+ $('barras').innerHTML=u.map(h=>`<div class="flex-1 flex flex-col items-center justify-end h-full" title="${mmaa(h.mesRef)}: ${h.consumoKwh.toFixed(1)} kWh"><div class="w-full bg-emerald-400 rounded-t" style="height:${Math.max(h.consumoKwh/mx*80,3)}%"></div><span class="text-[9px] text-slate-400 mt-0.5">${h.mesRef.slice(5)}</span></div>`).join('');
+}
+function alternarPago(id){const h=hist.find(x=>x.id===id);if(h){h.pago=!h.pago;save();render()}}
+function ver(id){const h=hist.find(x=>x.id===id);if(h){atual=h;mostrar(h)}}
+function excluir(id){if(confirm('Excluir este registro do histórico?')){hist=hist.filter(h=>h.id!==id);save();render();sugerirAnterior();toast('Registro excluído.')}}
 
-        function salvarConfiguracoes() {
-            config.tarifa = parseFloat(document.getElementById('configTarifa').value) || 1.16;
-            config.desconto = parseFloat(document.getElementById('configDesconto').value) || 10;
-            config.chavePix = document.getElementById('configChavePix').value.trim();
-            config.nomePix = document.getElementById('configNomePix').value.trim();
-            config.cidadePix = document.getElementById('configCidadePix').value.trim();
-            
-            localStorage.setItem('config_energia', JSON.stringify(config));
-            fecharConfiguracoes();
-            alert('Configurações salvas com sucesso!');
-        }
+async function zap(){
+ if(!atual)return;const c=atual;
+ const t=`*FATURA DE ENERGIA* ⚡\nReferência: ${mmaa(c.mesRef)}\nVencimento: ${vencimento(c.mesRef)}\n\n`+
+ `• Leitura anterior: ${c.anterior} kWh${c.dataAnterior?' ('+dmy(c.dataAnterior)+')':''}\n• Leitura atual: ${c.atual} kWh${c.dataAtual?' ('+dmy(c.dataAtual)+')':''}\n• Consumo: *${c.consumoKwh.toFixed(1)} kWh*\n`+
+ `• Tarifa: ${R(c.tarifa)}/kWh\n• Subtotal: ${R(c.subtotal)}\n• Desconto solar (${c.percentualDesconto}%): -${R(c.valorDesconto)}\n\n`+
+ `*TOTAL: ${R(c.totalLiquido)}*\n\n`+(payload?`Pix copia e cola:\n${payload}\n\n`:'')+`Favorecido: ${cfg.pixNome}\nEnvie o comprovante após o pagamento. Obrigado!`;
+ let tel=(cfg.telefone||'').replace(/\D/g,'');if(tel&&tel.length<=11)tel='55'+tel;
+ const curto=`*Fatura de energia - ${mmaa(c.mesRef)}*\nTotal: *${R(c.totalLiquido)}* - vence em ${vencimento(c.mesRef)}`+(payload?(linkPix()?`\n\nToque no link para copiar o código Pix:\n${linkPix()}`:'')+`\n\nPix copia e cola:\n${payload}`:'');
+ const d=montarPdf();
+ if(d){
+  const file=new File([d.output('blob')],nomePdf(),{type:'application/pdf'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+   try{await navigator.share({files:[file],title:'Fatura de energia '+mmaa(c.mesRef),text:curto});return}
+   catch(e){if(e&&e.name==='AbortError')return}
+  }
+  d.save(nomePdf());toast('PDF baixado. Anexe o arquivo na conversa do WhatsApp.');
+ }
+ window.open((tel?'https://wa.me/'+tel:'https://api.whatsapp.com/send')+'?text='+encodeURIComponent(t),'_blank');
+}
 
-        // Funções Pix BR Code
-        function formatarCampoPix(id, valor) {
-            const tamanho = String(valor.length).padStart(2, '0');
-            return id + tamanho + valor;
-        }
+async function copiar(t,msg){
+ if(!t){toast('Nada para copiar.','error');return}
+ try{await navigator.clipboard.writeText(t)}catch(e){const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(_){}a.remove()}
+ toast(msg);
+}
 
-        function gerarPayloadPix(chave, nome, cidade, valor) {
-            const gui = formatarCampoPix('00', 'br.gov.bcb.pix');
-            const chavePixField = formatarCampoPix('01', chave);
-            const contaCorrente = formatarCampoPix('26', gui + chavePixField);
-            
-            const mcc = formatarCampoPix('52', '0000');
-            const moeda = formatarCampoPix('53', '986');
-            const valorStr = formatarCampoPix('54', valor.toFixed(2));
-            const pais = formatarCampoPix('58', 'BR');
-            const nomeRecebedor = formatarCampoPix('59', nome.substring(0, 25));
-            const cidadeRecebedor = formatarCampoPix('60', cidade.substring(0, 15));
-            
-            const payloadSemCRC = 
-                formatarCampoPix('00', '01') +
-                contaCorrente +
-                mcc +
-                moeda +
-                valorStr +
-                pais +
-                nomeRecebedor +
-                cidadeRecebedor +
-                formatarCampoPix('62', formatarCampoPix('05', 'ENERGIA'));
+/* PDF da fatura */
+function montarPdf(){
+ if(!atual)return null;
+ if(!window.jspdf){toast('A biblioteca de PDF não carregou. Verifique a conexão.','error');return null}
+ const c=atual,d=new window.jspdf.jsPDF({unit:'mm',format:'a4'}),W=210,M=16,CW=W-M*2;
+ const G=[5,150,105],GD=[4,120,87],GL=[236,253,245],T=[30,41,59],S=[100,116,139],L=[226,232,240],Z=[248,250,252],B=[255,255,255];
+ const txt=(s,x,y,o)=>d.text(String(s),x,y,o);
+ const f=(st,sz,col)=>{d.setFont('helvetica',st);d.setFontSize(sz);d.setTextColor(col[0],col[1],col[2])};
+ const fill=a=>d.setFillColor(a[0],a[1],a[2]);
 
-            return payloadSemCRC + calculaCRC16(payloadSemCRC + '6304');
-        }
+ /* Cabeçalho */
+ fill(G);d.rect(0,0,W,40,'F');fill(GD);d.rect(0,40,W,2,'F');
+ f('bold',22,B);txt('Fatura de Energia',M,18);
+ f('normal',10,[209,250,229]);txt('Submedidor solar - Equatorial GO',M,26);
+ f('normal',9,[209,250,229]);txt('Referência',W-M,14,{align:'right'});
+ f('bold',22,B);txt(mmaa(c.mesRef),W-M,25,{align:'right'});
+ if(c.pago){fill(B);d.roundedRect(W-M-20,29,20,6,1.5,1.5,'F');f('bold',8,G);txt('PAGO',W-M-10,33.2,{align:'center'})}
 
-        function calculaCRC16(payload) {
-            let polinomio = 0x1021;
-            let resultado = 0xFFFF;
-            for (let i = 0; i < payload.length; i++) {
-                let c = payload.charCodeAt(i);
-                resultado ^= (c << 8);
-                for (let j = 0; j < 8; j++) {
-                    if ((resultado & 0x8000) !== 0) {
-                        resultado = ((resultado << 1) ^ polinomio) & 0xFFFF;
-                    } else {
-                        resultado = (resultado << 1) & 0xFFFF;
-                    }
-                }
-            }
-            return resultado.toString(16).toUpperCase().padStart(4, '0');
-        }
+ let y=52;
 
-        function calcularFatura() {
-            const mes = document.getElementById('mesReferencia').value;
-            const anterior = parseFloat(document.getElementById('leituraAnterior').value);
-            const atual = parseFloat(document.getElementById('leituraAtual').value);
+ /* Consumidor e endereço */
+ if(cfg.inquilino||cfg.endereco||cfg.cep){
+  f('normal',10,T);
+  const end=cfg.endereco?cfg.endereco.split(/\n/).flatMap(l=>d.splitTextToSize(l.trim(),CW-12)):[];
+  const h=8+(cfg.inquilino?8:0)+end.length*5+(cfg.cep?5:0)+4;
+  d.setDrawColor(L[0],L[1],L[2]);d.setLineWidth(.3);d.roundedRect(M,y,CW,h,2.5,2.5);
+  fill(G);d.rect(M,y+3,1.2,h-6,'F');
+  f('normal',8,S);txt('Consumidor / endereço do imóvel',M+6,y+6);
+  let yy=y+13;
+  if(cfg.inquilino){f('bold',13,T);txt(cfg.inquilino,M+6,yy);yy+=7}
+  f('normal',10,T);end.forEach(l=>{txt(l,M+6,yy);yy+=5});
+  if(cfg.cep){f('normal',10,T);txt('CEP '+cfg.cep,M+6,yy)}
+  y+=h+8;
+ }
 
-            if (isNaN(anterior) || isNaN(atual)) {
-                alert('Por favor, preencha a leitura anterior e a leitura atual.');
-                return;
-            }
+ /* Resumo */
+ const tw=(CW-8)/3,th=20;
+ const tile=(x,rot,val,dest)=>{
+  if(dest){fill(G);d.roundedRect(x,y,tw,th,2.5,2.5,'F')}else{d.setDrawColor(L[0],L[1],L[2]);d.roundedRect(x,y,tw,th,2.5,2.5)}
+  f('normal',8,dest?[209,250,229]:S);txt(rot,x+5,y+7);
+  f('bold',dest?15:13,dest?B:T);txt(val,x+5,y+15.5);
+ };
+ tile(M,'Vencimento',vencimento(c.mesRef));
+ tile(M+tw+4,'Consumo',c.consumoKwh.toFixed(1)+' kWh');
+ tile(M+(tw+4)*2,'Total a pagar',R(c.totalLiquido),true);
+ y+=th+9;
 
-            if (atual < anterior) {
-                alert('A leitura atual não pode ser menor que a leitura anterior.');
-                return;
-            }
+ /* Detalhamento */
+ f('bold',11,T);txt('Detalhamento',M,y);fill(G);d.rect(M,y+2,14,.8,'F');y+=7;
+ const rows=[['Leitura anterior'+(c.dataAnterior?' ('+dmy(c.dataAnterior)+')':''),c.anterior+' kWh'],['Leitura atual'+(c.dataAtual?' ('+dmy(c.dataAtual)+')':''),c.atual+' kWh'],['Consumo no período',c.consumoKwh.toFixed(1)+' kWh'],['Tarifa por kWh',R(c.tarifa)],['Subtotal',R(c.subtotal)],['Desconto solar ('+c.percentualDesconto+'%)','-'+R(c.valorDesconto)]];
+ rows.forEach((r,i)=>{
+  if(i%2===0){fill(Z);d.rect(M,y,CW,8,'F')}
+  f('normal',10,S);txt(r[0],M+3,y+5.4);
+  f(i===5?'bold':'normal',10,i===5?G:T);txt(r[1],W-M-3,y+5.4,{align:'right'});y+=8;
+ });
+ fill(GL);d.rect(M,y,CW,11,'F');
+ f('bold',11,GD);txt('Total a pagar',M+3,y+7.2);f('bold',14,GD);txt(R(c.totalLiquido),W-M-3,y+7.5,{align:'right'});
+ y+=19;
 
-            const consumo = atual - anterior;
-            const subtotal = consumo * config.tarifa;
-            const valorDesconto = subtotal * (config.desconto / 100);
-            const totalPagar = subtotal - valorDesconto;
+ /* Gráfico de consumo */
+ const ser=hist.filter(h=>h.mesRef!==c.mesRef).concat([c]).sort((a,b)=>a.mesRef.localeCompare(b.mesRef)).slice(-6);
+ if(ser.length>=2){
+  f('bold',11,T);txt('Consumo dos últimos meses (kWh)',M,y);fill(G);d.rect(M,y+2,14,.8,'F');y+=9;
+  const mx=Math.max(...ser.map(h=>h.consumoKwh),1),gap=5,bw=Math.min((CW-gap*(ser.length-1))/ser.length,24),x0=M+(CW-(bw*ser.length+gap*(ser.length-1)))/2,base=y+20;
+  ser.forEach((h,i)=>{
+   const x=x0+i*(bw+gap),bh=Math.max(h.consumoKwh/mx*18,1);
+   fill(h.mesRef===c.mesRef?G:[167,243,208]);d.roundedRect(x,base-bh,bw,bh,1,1,'F');
+   f('bold',7,T);txt(h.consumoKwh.toFixed(0),x+bw/2,base-bh-1.5,{align:'center'});
+   f('normal',7,S);txt(mmaa(h.mesRef),x+bw/2,base+4.5,{align:'center'});
+  });
+  y=base+11;
+ }
 
-            ultimoCalculo = { mes, anterior, atual, consumo, subtotal, valorDesconto, totalPagar };
+ /* Pix */
+ const cv=$('qr').querySelector('canvas');
+ if(payload&&cv){
+  d.setDrawColor(L[0],L[1],L[2]);d.roundedRect(M,y,CW,46,2.5,2.5);
+  d.addImage(cv.toDataURL('image/png'),'PNG',M+4,y+4,38,38);
+  f('bold',11,T);txt('Pague com Pix',M+48,y+11);
+  f('normal',8.5,S);txt('Escaneie o QR Code no app do banco ou use o copia e cola:',M+48,y+17);
+  d.setFont('courier','normal');d.setFontSize(8);
+  const pl=d.splitTextToSize(payload,CW-62).slice(0,6);
+  fill(Z);d.setDrawColor(L[0],L[1],L[2]);d.roundedRect(M+48,y+20,CW-52,pl.length*3.8+5,1.5,1.5,'FD');
+  d.setTextColor(T[0],T[1],T[2]);d.text(pl,M+51,y+25.5);
+  const lk=linkPix();
+  if(lk){const tl='Toque aqui para abrir a página de pagamento e copiar o código';f('bold',8.5,G);d.textWithLink(tl,M+48,y+42,{url:lk});d.setDrawColor(G[0],G[1],G[2]);d.setLineWidth(.2);d.line(M+48,y+43,M+48+d.getTextWidth(tl),y+43)}
+  else{f('normal',7.5,S);txt('No app do banco: Pix > Pix Copia e Cola > cole o código acima.',M+48,y+42)}
+  y+=46;
+ }
 
-            document.getElementById('resumoReferencia').innerText = `Referência: ${mes}`;
-            document.getElementById('resumoConsumo').innerText = `${consumo.toFixed(1)} kWh`;
-            document.getElementById('resumoTarifa').innerText = `R$ ${config.tarifa.toFixed(2)}`;
-            document.getElementById('resumoSubtotal').innerText = `R$ ${subtotal.toFixed(2)}`;
-            document.getElementById('resumoDesconto').innerText = `-R$ ${valorDesconto.toFixed(2)} (${config.desconto}%)`;
-            document.getElementById('resumoTotal').innerText = `R$ ${totalPagar.toFixed(2)}`;
+ /* Rodapé */
+ d.setDrawColor(L[0],L[1],L[2]);d.line(M,285,W-M,285);
+ f('normal',8,[148,163,184]);
+ txt('Cobrança de energia elétrica do submedidor'+(cfg.pixNome?' - emitida por '+cfg.pixNome:''),M,290);
+ txt('Emitida em '+new Date().toLocaleDateString('pt-BR'),W-M,290,{align:'right'});
+ return d;
+}
+const nomePdf=()=>'fatura-energia-'+atual.mesRef+'.pdf';
+function baixarPdf(){const d=montarPdf();if(d)d.save(nomePdf())}
 
-            document.getElementById('viewChavePix').value = config.chavePix;
+/* Configurações */
+function abrirCfg(){
+ $('c-tar').value=cfg.tarifa;$('c-desc').value=cfg.desconto;$('c-dia').value=cfg.diaVenc;$('c-pix').value=cfg.pixChave;
+ $('c-nome').value=cfg.pixNome;$('c-cid').value=cfg.pixCidade;$('c-inq').value=cfg.inquilino;$('c-tel').value=cfg.telefone;$('c-end').value=cfg.endereco;$('c-cep').value=cfg.cep;
+ $('modal').classList.replace('hidden','flex');
+}
+function fecharCfg(){$('modal').classList.replace('flex','hidden')}
+function salvarCfg(){
+ cfg.tarifa=num($('c-tar').value,cfg.tarifa);cfg.desconto=Math.min(Math.max(num($('c-desc').value,cfg.desconto),0),100);
+ cfg.diaVenc=Math.min(Math.max(parseInt($('c-dia').value)||10,1),28);
+ cfg.pixChave=$('c-pix').value.trim();cfg.pixNome=$('c-nome').value.trim();cfg.pixCidade=$('c-cid').value.trim();
+ cfg.inquilino=$('c-inq').value.trim();cfg.telefone=$('c-tel').value.trim();cfg.endereco=$('c-end').value.trim();cfg.cep=$('c-cep').value.trim();
+ save();fecharCfg();toast('Configurações salvas. Faturas já salvas mantêm a tarifa original.');
+ if(atual)mostrar(atual);
+}
 
-            const pixPayload = gerarPayloadPix(config.chavePix, config.nomePix || 'Recebedor', config.cidadePix || 'Cidade', totalPagar);
-            document.getElementById('viewPixPayload').value = pixPayload;
+/* Backup */
+function exportar(){
+ const a=document.createElement('a');
+ a.href=URL.createObjectURL(new Blob([JSON.stringify({cfg,hist},null,1)],{type:'application/json'}));
+ a.download='gestor-solar-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);
+}
+function importar(e){
+ const f=e.target.files[0];if(!f)return;const r=new FileReader();
+ r.onload=()=>{try{
+  const d=JSON.parse(r.result);if(!Array.isArray(d.hist)||typeof d.cfg!=='object')throw 0;
+  if(!confirm('Substituir os dados atuais pelos do backup?'))return;
+  cfg=Object.assign(cfg,d.cfg);hist=d.hist;hist.sort((a,b)=>b.mesRef.localeCompare(a.mesRef));save();render();sugerirAnterior();toast('Backup restaurado.');
+ }catch(_){toast('Arquivo de backup inválido.','error')}};
+ r.readAsText(f);e.target.value='';
+}
 
-            document.getElementById('qrcode').innerHTML = '';
-            new QRCode(document.getElementById('qrcode'), {
-                text: pixPayload,
-                width: 130,
-                height: 130,
-                colorDark: "#0f172a",
-                colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.M
-            });
-
-            document.getElementById('painelFatura').classList.remove('hidden');
-            document.getElementById('painelFatura').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        function copiarChave() {
-            navigator.clipboard.writeText(config.chavePix);
-            alert('Chave Pix copiada com sucesso!');
-        }
-
-        function copiarPixPayload() {
-            const payload = document.getElementById('viewPixPayload').value;
-            navigator.clipboard.writeText(payload);
-            alert('Código Pix Copia e Cola copiado com sucesso!');
-        }
-
-        function enviarWhatsApp() {
-            if (!ultimoCalculo) return;
-            const msg = `⚡ *Fatura de Energia - Casa dos Fundos* ⚡\n` +
-                        (inquilino.nome ? `👤 Inquilino: ${inquilino.nome}\n` : '') +
-                        (inquilino.endereco ? `🏠 Imóvel: ${inquilino.endereco}\n` : '') +
-                        `📅 Referência: ${ultimoCalculo.mes}\n` +
-                        `📊 Consumo: ${ultimoCalculo.consumo.toFixed(1)} kWh\n` +
-                        `💰 Subtotal: R$ ${ultimoCalculo.subtotal.toFixed(2)}\n` +
-                        `🎁 Desconto (${config.desconto}%): -R$ ${ultimoCalculo.valorDesconto.toFixed(2)}\n` +
-                        `✅ *Total a Pagar: R$ ${ultimoCalculo.totalPagar.toFixed(2)}*\n\n` +
-                        `💠 *Pix Copia e Cola:*\n${document.getElementById('viewPixPayload').value}`;
-            
-            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
-        }
-
-        function salvarHistorico() {
-            if (!ultimoCalculo) return;
-            historico.unshift(ultimoCalculo);
-            localStorage.setItem('historico_energia', JSON.stringify(historico));
-
-            avancarProximoMes(ultimoCalculo.atual);
-            atualizarHistorico();
-            document.getElementById('painelFatura').classList.add('hidden');
-            alert('Fatura salva com sucesso!');
-        }
-
-        function avancarProximoMes(leituraAtual) {
-            document.getElementById('leituraAnterior').value = leituraAtual;
-            document.getElementById('leituraAtual').value = '';
-
-            const partes = document.getElementById('mesReferencia').value.split('/');
-            if (partes.length === 2) {
-                let mes = parseInt(partes[0]) + 1;
-                let ano = parseInt(partes[1]);
-                if (mes > 12) { mes = 1; ano++; }
-                document.getElementById('mesReferencia').value = `${String(mes).padStart(2, '0')}/${ano}`;
-            }
-        }
-
-        function atualizarHistorico() {
-            const container = document.getElementById('listaHistorico');
-            if (historico.length === 0) {
-                container.innerHTML = `<p class="text-sm text-slate-400 italic">Nenhum lançamento salvo ainda.</p>`;
-                return;
-            }
-
-            container.innerHTML = historico.map((item, index) => `
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 p-4 rounded-xl border border-slate-100 gap-2">
-                    <div>
-                        <strong class="text-slate-900 block">Mês: ${item.mes}</strong>
-                        <span class="text-xs text-slate-500">Consumo: ${item.consumo.toFixed(1)} kWh | Leituras: ${item.anterior} ➔ ${item.atual}</span>
-                    </div>
-                    <div class="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                        <span class="font-bold text-emerald-600">R$ ${item.totalPagar.toFixed(2)}</span>
-                        <div class="flex gap-2">
-                            <button onclick="reverFatura(${index})" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold">Ver</button>
-                            <button onclick="excluirHistorico(${index})" class="text-red-400 hover:text-red-600 text-xs font-semibold">Excluir</button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function reverFatura(index) {
-            const item = historico[index];
-            ultimoCalculo = item;
-            
-            document.getElementById('resumoReferencia').innerText = `Referência: ${item.mes}`;
-            document.getElementById('resumoConsumo').innerText = `${item.consumo.toFixed(1)} kWh`;
-            document.getElementById('resumoTarifa').innerText = `R$ ${config.tarifa.toFixed(2)}`;
-            document.getElementById('resumoSubtotal').innerText = `R$ ${item.subtotal.toFixed(2)}`;
-            document.getElementById('resumoDesconto').innerText = `-R$ ${item.valorDesconto.toFixed(2)} (${config.desconto}%)`;
-            document.getElementById('resumoTotal').innerText = `R$ ${item.totalPagar.toFixed(2)}`;
-
-            document.getElementById('viewChavePix').value = config.chavePix;
-            const pixPayload = gerarPayloadPix(config.chavePix, config.nomePix || 'Recebedor', config.cidadePix || 'Cidade', item.totalPagar);
-            document.getElementById('viewPixPayload').value = pixPayload;
-
-            document.getElementById('qrcode').innerHTML = '';
-            new QRCode(document.getElementById('qrcode'), {
-                text: pixPayload,
-                width: 130,
-                height: 130,
-                colorDark: "#0f172a",
-                colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.M
-            });
-
-            document.getElementById('painelFatura').classList.remove('hidden');
-            document.getElementById('painelFatura').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        function excluirHistorico(index) {
-            if (confirm('Deseja realmente excluir este registro do histórico?')) {
-                historico.splice(index, 1);
-                localStorage.setItem('historico_energia', JSON.stringify(historico));
-                atualizarHistorico();
-                carregarUltimaLeitura();
-            }
-        }
-
-        window.onload = init;
-    </script>
+function toast(m,t){
+ $('t-msg').textContent=m;$('t-ic').className=t==='error'?'fa-solid fa-triangle-exclamation text-rose-400':'fa-solid fa-circle-check text-emerald-400';
+ const el=$('toast');el.classList.remove('hidden');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.add('hidden'),3500);
+}
+</script>
 </body>
 </html>
